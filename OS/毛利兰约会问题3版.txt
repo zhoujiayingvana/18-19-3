@@ -1,0 +1,119 @@
+
+毛利兰约会问题
+
+这是名侦探柯南的世界。
+1）贝尔摩德、灰原哀、铃木园子等人都想与毛利兰约会，柯南无法与毛利兰约会，
+只有变成工藤新一后才能与毛利兰约会。毛利兰一次只能与一个人约会。
+
+2）柯南的身边会随机出现各种案件，如果案件发生时，毛利兰没有去与其他人约会
+，则可以与柯南一起破案，如果毛利兰正在与他人约会，则不可以跟柯南一起破案。
+
+3）柯南每破获50个案件（50集），则可变为工藤新一，变为工藤新一之后不再破案
+，而是去与毛利兰约会，此时毛利兰不会再答应与其他人约会，只会与工藤新一约会
+。当工藤新一与毛利兰约会超过3集，工藤新一变回柯南，不能再与毛利兰约会。
+
+Shared data:
+
+semaphore:
+mutex-----毛利兰信号量：毛利兰是否有空
+otherMutex-----只有一个其他进程在date上排队，而所有其他进程在等待date之前，在信号量otherMutex上排队
+case-----案件信号量
+date-----约会信号量：是否有人想要与毛利兰约会
+
+int:
+CaseCount-----案件计数器
+DateCount-----工藤新一约会计数器
+bool Dating-----毛利兰是否在约会
+
+
+
+Initially:
+bool Dating=false;-----毛利兰是否在约会
+int DateCount=0 -----约会计数器
+int CaseCount=0 -----案件计数器
+int DateCount=0 -----约会计数器
+
+semaphore mutex=1 -----毛利兰信号量
+semaphore case=1 -----案件信号量
+semaphore date=1 -----约会信号量
+semaphore otherMutex-----所有其他进程在等待date之前，在信号量otherMutex上排队
+
+P1 其他人的约会进程
+
+do{
+	wait(otherMutex);//剩余“其他人”在otherMutex上排队
+	wait(date);//同一时刻只有一个“其他人”在date上排队
+	wait(mutex);//确认毛利兰空闲
+	Dating=true;
+	signal(date);
+	signal(otherMutex);
+	……
+	约会;
+	……
+	Dating=false;
+	signal(mutex);
+}while(1)
+
+P2 柯南探案进程/工藤新一约会进程
+
+do{
+	wait(case);//柯南是否正在探案
+	if(CaseCount<50)//破案路径
+	{
+		if(!Dating)//毛利兰不在约会则一起破案
+		{
+			wait(mutex);
+			CaseCount++;
+			……
+			破案;
+			……
+			signal(mutex);
+			Date.value++;
+		}
+		else
+		{
+			CaseCount++;
+			……
+			破案;
+			……
+		}
+	}
+	else if(CaseCount==50)//约会路径
+	{
+		DateCount++;
+		if(DateCount==1)
+		{	
+			wait(date);//毛利兰不再答应与其他人约会，使其他人进入约会等待
+			wait(mutex);
+			……
+			约会;
+			……
+			signal(mutex);
+		}
+		else if(DateCount==3)//约会满3集了，下一个柯南进程重新回到破案路径
+		{
+			CaseCount=0;
+			DateCount=0;
+			wait(mutex);
+			……
+			约会;
+			……
+			signal(mutex);
+			signal(date);//毛利兰可以答应与其他人约会
+		}
+		else
+		{
+			wait(mutex);
+			……
+			约会;
+			……
+			signal(mutex);
+		}
+	}
+	signal(case);
+}while(1)
+
+
+
+
+
